@@ -1,5 +1,5 @@
 {{- if .Values.rbac.create -}}
-{{- $fullName := include "elasticsearch.uname" . -}}
+{{- $fullName := include "elasticsearch.commonname" . -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

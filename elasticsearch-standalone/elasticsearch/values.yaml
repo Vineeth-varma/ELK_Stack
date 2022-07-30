@@ -57,6 +57,9 @@ client:
 # This should be set to clusterName + "-" + nodeGroup for your master group
 masterService: elasticsearch-master
 
+# A name is defining as commonname in _helpers.tpl for few deployments to have a name 
+commonName: elastic-stack
+
 minimumMasterNodes: 2
 
 esMajorVersion: ""

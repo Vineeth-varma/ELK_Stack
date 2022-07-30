@@ -1,5 +1,5 @@
 {{- if .Values.podSecurityPolicy.create -}}
-{{- $fullName := include "elasticsearch.uname" . -}}
+{{- $fullName := include "elasticsearch.commonname" . -}}
 {{- if .Capabilities.APIVersions.Has "policy/v1" -}}
 apiVersion: policy/v1
 {{- else}}

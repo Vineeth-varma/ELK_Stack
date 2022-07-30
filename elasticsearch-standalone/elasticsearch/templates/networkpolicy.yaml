@@ -2,16 +2,16 @@
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: {{ template "elasticsearch.uname" . }}
+  name: {{ template "elasticsearch.commonname" . }}
   labels:
     heritage: {{ .Release.Service | quote }}
     release: {{ .Release.Name | quote }}
     chart: "{{ .Chart.Name }}"
-    app: "{{ template "elasticsearch.uname" . }}"
+    app: "{{ template "elasticsearch.commonname" . }}"
 spec:
   podSelector:
     matchLabels:
-      app: "{{ template "elasticsearch.uname" . }}"
+      app: "{{ template "elasticsearch.commonname" . }}"
   ingress:  # Allow inbound connections
 
 {{- if .Values.networkPolicy.http.enabled }}
@@ -22,7 +22,7 @@ spec:
         # From authorized Pods (having the correct label)
         - podSelector:
             matchLabels:
-              {{ template "elasticsearch.uname" . }}-http-client: "true"
+              {{ template "elasticsearch.commonname" . }}-http-client: "true"
 {{- with .Values.networkPolicy.http.explicitNamespacesSelector }}
           # From authorized namespaces
           namespaceSelector:
@@ -42,7 +42,7 @@ spec:
         # From authorized Pods (having the correct label)
         - podSelector:
             matchLabels:
-              {{ template "elasticsearch.uname" . }}-transport-client: "true"
+              {{ template "elasticsearch.commonname" . }}-transport-client: "true"
 {{- with .Values.networkPolicy.transport.explicitNamespacesSelector }}
           # From authorized namespaces
           namespaceSelector:
@@ -55,7 +55,7 @@ spec:
         # Or from other ElasticSearch Pods
         - podSelector:
             matchLabels:
-              app: "{{ template "elasticsearch.uname" . }}"
+              app: "{{ template "elasticsearch.commonname" . }}"
 {{- end }}
 
 {{- end }}

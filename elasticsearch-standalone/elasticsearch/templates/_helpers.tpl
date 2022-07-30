@@ -40,6 +40,9 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{ .Values.client.clusterName }}-{{ .Values.client.nodeGroup }}
 {{- end -}}
 
+{{- define "elasticsearch.commonname" -}}
+{{ .Values.commonName }}
+{{- end -}}
 
 
 {{/*

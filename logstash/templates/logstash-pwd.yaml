@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pwd-config
+  labels:
+    app: {{ .Release.Name }}
+data:
+  logstash.yml: |-
+{{ toYaml .Values.config | indent 4 }}

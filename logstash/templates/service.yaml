@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-service
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - name: logstash-port
+      targetPort: 5044
+      port: {{ .Values.service.port }}
+      protocol: TCP
+  type: {{ .Values.service.type }}

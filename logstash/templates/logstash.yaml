@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}-headless
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+{{ toYaml .Values.securityContext | indent 8 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - "logstash"
+            topologyKey: kubernetes.io/hostname
+{{- if .Values.nodeName }}
+      nodeName: {{ .Values.nodeName.name }}
+{{- end }}
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecrets }}
+{{- end }}
+      containers:
+        - name: logstash
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5044
+          env:
+          - name: LS_JAVA_OPTS
+            value: {{ .Values.env.jvm | quote }}
+          - name: ES_HOSTS
+            value: {{ .Values.elasticsearch.host | quote }}
+          - name: ES_USER
+            value: {{ .Values.elasticsearch.user | quote }}
+          - name: ES_PASSWORD
+            value: {{ .Values.elasticsearch.password | quote }}
+          volumeMounts:
+            - name: logstash-pipelines
+              mountPath: /usr/share/logstash/pipeline
+            - name: logstash-config
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+            - name: cert-ca
+              mountPath: /etc/logstash/config/certs
+              readOnly: true
+            - name: logstash-data
+              mountPath: /usr/share/logstash/data
+      volumes:
+        - name: logstash-pipelines
+          configMap:
+            name: logstash-pipelines
+        - name: logstash-config
+          configMap:
+            name: logstash-pwd-config
+        - name: cert-ca
+          secret:
+            secretName: elastic-es-http-certs-public
+  volumeClaimTemplates:
+  - metadata:
+      name: logstash-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.volume.storage }}
+      storageClassName: {{ .Values.volume.storageClassName }}

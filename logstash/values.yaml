@@ -1,0 +1,155 @@
+replicaCount: 1
+
+
+terminationGracePeriodSeconds: 30
+
+image: docker.elastic.co/logstash/logstash:7.14.0
+
+imagePullSecrets: {}
+
+service:
+  type: LoadBalancer
+  port: <PORT>
+
+env:
+  jvm: "-Xmx1g -Xms1g"
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  path: /
+  hosts:
+    - logstash.cluster.local
+  tls: []
+  #  - secretName: logstash-tls
+  #    hosts:
+  #      - logstash.cluster.local
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 2Gi
+  limits:
+    cpu: 200m
+    memory: 2Gi
+
+securityContext:
+  runAsGroup: 64000
+  runAsUser: 7282723
+
+nodeSelectots: {}
+
+tolerations: []
+
+affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     - topologyKey: "kubernetes.io/hostname"
+  #       labelSelector:
+  #         matchLabels:
+  #           release: logstash
+
+podAnnotations: {}
+  # iam.amazonaws.com/role: "logstash-role"
+  # prometheus.io/scrape: "true"
+  # prometheus.io/path: "/metrics"
+  # prometheus.io/port: "9198"
+
+podLabels: {}
+  # team: "developers"
+  # service: "logstash"
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: monitor
+  initialDelaySeconds: 20
+  # periodSeconds: 30
+  # timeoutSeconds: 30
+  # failureThreshold: 6
+  # successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: monitor
+  initialDelaySeconds: 20
+  # periodSeconds: 30
+  # timeoutSeconds: 30
+  # failureThreshold: 6
+  # successThreshold: 1
+
+# Optional
+nodeName:
+  name: {}
+
+volume:
+  storage: 5Gi
+  storageClassName: <sc-name>
+
+elasticsearch:
+  host: "https://elastic:<password>@<elastic-helm-release-name>-es-http.eo.svc:<elastic-port>"
+  user: "elastic"
+  password: "<elastic-password>"
+
+## ref: https://github.com/elastic/logstash-docker/blob/master/build/logstash/env2yaml/env2yaml.go
+config:
+  config.reload.automatic: "true"
+  path.config: /usr/share/logstash/pipeline
+  path.data: /usr/share/logstash/data
+
+  ## ref: https://www.elastic.co/guide/en/logstash/current/persistent-queues.html
+  queue.checkpoint.writes: 1
+  queue.drain: "true"
+  queue.max_bytes: 1gb  # disk capacity must be greater than the value of `queue.max_bytes`
+  queue.type: persisted
+
+## Patterns for filters.
+## Each YAML heredoc will become a separate pattern file.
+patterns:
+  # main: |-
+  #   TESTING {"foo":.*}$
+
+## NOTE: To achieve multiple pipelines with this chart, current best practice
+## is to maintain one pipeline per chart release. In this way configuration is
+## simplified and pipelines are more isolated from one another.
+inputs:
+  main: |-
+    input {
+      beats {
+        port => 5044
+        }
+     }
+
+filters:
+  main: |-
+    filter  {
+      csv {
+        separator => ";"
+        columns  => ["Country","Total cases","Total death","Total recovered","Population"]
+         }
+      mutate {
+        convert => {
+          "Total cases"  => "integer"
+          "Total death"  => "integer"
+          "Total recovered"  => "integer"
+          "Population"   =>  "integer"
+                }
+             }
+          }
+
+outputs:
+  main: |-
+   output {
+       elasticsearch {
+            hosts =>  "${ES_HOSTS}"
+            user => "${ES_USER}"
+            password => "${ES_PASSWORD}"
+            cacert => '/etc/logstash/config/certs/ca.crt'
+            manage_template => false
+            index => "testdata-%{+YYYY.MM.dd}"
+          }
+         stdout { codec => rubydebug }
+       }

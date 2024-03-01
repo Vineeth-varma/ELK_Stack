@@ -1,0 +1,50 @@
+# Kibana Version
+version: 7.15.0
+
+# Instances count
+count: 1
+
+# Elasticsearch details
+elasticsearchRef:
+  name: <elasticsearch_helm_release_name>
+  namespace: <namespace where elasticsearch is deployed>
+
+# Can specify Elasticsearch service name or IP with port
+config:
+  elasticsearch_hosts: "https://<IP>:<PORT>"
+
+# I have provided ECCS kibana image as we are using private docker registry and mention the secret under imagePullSecrets
+# #  Use this official one when you dont have private registry, docker.elastic.co/kibana/kibana:7.13.0
+image: docker.elastic.co/kibana/kibana:7.15.0
+imagePullSecrets: {}
+
+# service file
+service:
+  metadata:
+    annotations: {}
+  spec:
+    ports:
+      port: <port>
+    type: LoadBalancer
+    loadBalancerIP: {}
+
+# Kibana resources
+resources:
+  requests:
+    memory: 2Gi
+    cpu: 1
+  limits:
+    memory: 2Gi
+    cpu: 1
+
+# Enable pvc when you want to persist logs, use the same pvc which you have used for elasticsearch
+pvc:
+  enabled: false
+
+
+#configuration file for oidc connection
+oidc:
+  enabled: false
+  # realm name which we have used in Elasticsearch
+  realm:
+    name: <realm_name>

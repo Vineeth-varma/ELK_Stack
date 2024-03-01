@@ -1,0 +1,85 @@
+{{- if .Values.PrometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+{{ toYaml .Values.PrometheusRule.labels | indent 4 }}
+  name: {{ .Release.Name }}-rules
+  namespace: {{ .Release.Namespace }}
+spec:
+  groups:
+  - name: Elasticsearch-Rules
+    rules:
+   #Cluster Health Status
+    - alert: Elastic_Cluster_Health_RED/YELLOW
+      expr: elasticsearch_cluster_health_status{namespace="eo",color=~"red|yellow"} > 0
+      for: 300s
+      labels:
+        severity: critical
+      annotations:
+        summary:  "Not all primary and replica shards are allocated in elasticsearch cluster "
+        description: "Not all primary and replica shards are allocated in elasticsearch cluster"
+   #JVM Usage
+    - alert: Elasticsearch_JVM_Heap_Too_High
+      expr: sum (elasticsearch_jvm_memory_used_bytes) / sum (elasticsearch_jvm_memory_max_bytes) * 100 > 80
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ElasticSearch node heap usage is high"
+        description: "Elasticsearch heap is reaching more than 80% for 5m."
+   #Disk Usage
+    - alert: Elasticsearch_Disk_Usage_Too_High
+      expr: (1- (sum (elasticsearch_filesystem_data_free_bytes) / sum (elasticsearch_filesystem_data_size_bytes))) *100 > 80
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ElasticSearch nodes Disk usage is high"
+        description: "The Disk Usage in Elasticsearch  is more than 80% for 5m."
+   #CPU Usage
+    - alert: Elasticsearch_CPU_Usage_Percentage
+      expr: elasticsearch_os_cpu_percent > 80
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ElasticSearch node CPU Usage is high"
+        description: "The CPU Usage in Elasticsearch is more than 80% for 5m."
+   #Nodes Count
+    - alert:  Elasticsearch_Too_Few_Nodes_Running
+      expr:  elasticsearch_cluster_health_number_of_nodes < 9
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ElasticSearch running on less than 9 nodes"
+        description: "ElasticSearch running on less than 9 nodes"
+   #Immediate Health Check
+    - alert: Elasticsearch_health_up
+      expr:  elasticsearch_cluster_health_up !=1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ElasticSearch node last scrape of the ElasticSearch cluster health failed"
+        description: "ElasticSearch node last scrape of the ElasticSearch cluster health failed"
+   #GC Count
+    - alert: Elasticsearch_Count_of_JVM_GC_Runs
+      expr:  rate(elasticsearch_jvm_gc_collection_seconds_count{}[5m])>5
+      for: 60s
+      labels:
+        severity: warning
+      annotations:
+        summary: "ElasticSearch node Count of JVM GC runs > 5 per sec"
+        description: "ElasticSearch node Count of JVM GC runs > 5 per sec"
+   #GC Time
+    - alert: Elasticsearch_GC_Run_Time
+      expr: rate(elasticsearch_jvm_gc_collection_seconds_sum[5m])>0.3
+      for: 60s
+      labels:
+        severity: warning
+      annotations:
+        summary: "ElasticSearch node GC run time in seconds > 0.3 sec "
+        description: "ElasticSearch node GC run time in seconds > 0.3 sec"
+{{- end }}

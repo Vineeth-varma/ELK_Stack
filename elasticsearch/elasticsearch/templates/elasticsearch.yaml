@@ -1,0 +1,258 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  image: {{ .Values.image }}
+{{- if  .Values.licence.enabled }}
+  secureSettings:
+  - secretName: {{ .Values.Secrets.oidc.name }}
+{{- end }}
+  auth: {}
+  http:
+    service:
+      metadata:
+{{- if .Values.service.metadata.annotations }}
+        annotations:
+{{ toYaml .Values.service.metadata.annotations | indent 10 }}
+{{- end }}
+      spec:
+        ports:
+        - name: https
+          port: {{ .Values.service.spec.port }}
+          protocol: TCP
+          targetPort: 9200
+{{- if .Values.service.spec.type }}
+        type: {{ .Values.service.spec.type }}
+{{- end }}
+{{- if .Values.service.spec.loadBalancerIP }}
+        loadBalancerIP: {{ .Values.service.spec.loadBalancerIP }}
+{{- end }}
+{{- if  .Values.tls.enabled }}
+    tls:
+      certificate:
+        secretName: {{ .Values.tls.secretName }}
+{{- end }}
+  nodeSets:
+  - config:
+      node.data: false
+      node.ingest: false
+      node.master: true
+      node.remote_cluster_client: {{ .Values.nodeSets.node_remote_cluster_client }}
+      path.repo:
+      - /usr/share/elasticsearch/logs
+{{- if  .Values.licence.enabled }}
+      xpack.security.audit.enabled: true
+      xpack.security.authc.realms.oidc:
+{{ toYaml .Values.nodeSets.oidc_realm_name | indent 8 }}:
+          claims.groups: {{ .Values.nodeSets.claims_groups }}
+          claims.mail: {{ .Values.nodeSets.claims_mail }}
+          claims.name: {{ .Values.nodeSets.claims_name }}
+          claims.principal: {{ .Values.nodeSets.claims_principal }}
+          op.authorization_endpoint: {{ .Values.nodeSets.op_authorization_endpoint }}
+          op.issuer: {{ .Values.nodeSets.op_issuer }}
+          op.jwkset_path: {{ .Values.nodeSets.op_jwkset_path }}
+          op.token_endpoint: {{ .Values.nodeSets.op_token_endpoint }}
+          op.userinfo_endpoint: {{ .Values.nodeSets.op_userinfo_endpoint }}
+          order: {{ .Values.nodeSets.order }}
+          rp.client_id: {{ .Values.nodeSets.rp_client_id }}
+          rp.post_logout_redirect_uri: {{ .Values.nodeSets.rp_post_logout_redirect_uri }}
+          rp.redirect_uri: {{ .Values.nodeSets.rp_redirect_uri }}
+          rp.response_type: {{ .Values.nodeSets.rp_response_type }}
+          ssl.certificate_authorities:
+          - /usr/share/elasticsearch/keycloak/{{ .Values.nodeSets.ca_pem }}
+      xpack.security.authc.token.enabled: true
+{{- end }}
+    count: {{ .Values.master.count }}
+    name: master
+    podTemplate:
+      metadata: {}
+      spec:
+{{- if .Values.imagePullSecrets }}
+        imagePullSecrets:
+        - name: {{ .Values.imagePullSecrets }}
+{{- end }}
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              cpu: {{ .Values.master.resources.limits.cpu }}
+              memory: {{ .Values.master.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.master.resources.requests.cpu }}
+              memory: {{ .Values.master.resources.requests.memory }}
+          securityContext:
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+          volumeMounts:
+{{- if .Values.licence.enabled }}
+          - mountPath: /usr/share/elasticsearch/keycloak
+            name: ca-cert
+{{- end }}
+{{- if .Values.log4j.enabled }}
+          - mountPath: /usr/share/elasticsearch/config/log4j2.properties
+            subPath: log4j2.properties
+            name: log4j
+{{- end }}
+{{- if .Values.pvc.enabled }}
+          - mountPath: /usr/share/elasticsearch/logs
+            name: logs-backup
+{{- end }}
+        initContainers:
+        - name: elastic-internal-init-filesystem
+          securityContext:
+            privileged: true
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+        - name: sysctl
+          command: ['sh', '-c', 'chown -R 1000:1000 /usr/share/elasticsearch/data && chown -R 1000:1000 /usr/share/elasticsearch/logs && mkdir -p /usr/share/elasticsearch/logs/hourly && mkdir -p /usr/share/elasticsearch/logs/daily && mkdir -p /usr/share/elasticsearch/logs/weekly && mkdir -p /usr/share/elasticsearch/logs/monthly && sysctl -w vm.max_map_count=262144']
+          resources:
+{{ toYaml .Values.init.resources | indent 12 }}
+          securityContext:
+            privileged: true
+        volumes:
+{{- if  .Values.licence.enabled }}
+        - name: ca-cert
+          secret:
+            secretName: {{ .Values.Secrets.keycloak.name }}
+{{- end }}
+{{- if .Values.log4j.enabled }}
+        - name: log4j
+          configMap:
+            name: log4j
+{{- end }}
+{{- if .Values.pvc.enabled }}
+        - name: logs-backup
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.name }}
+{{- end }}
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.master.volumeClaimTemplates.resources.requests.storage }}
+        storageClassName: {{ .Values.master.volumeClaimTemplates.storageClassName }}
+      status: {}
+  - config:
+      node.data: true
+      node.ingest: true
+      node.master: false
+      path.repo:
+      - /usr/share/elasticsearch/logs
+{{- if  .Values.licence.enabled }}
+      xpack.security.audit.enabled: true
+      xpack.security.authc.realms.oidc:
+{{ toYaml .Values.nodeSets.oidc_realm_name | indent 8 }}:
+          claims.groups: {{ .Values.nodeSets.claims_groups }}
+          claims.mail: {{ .Values.nodeSets.claims_mail }}
+          claims.name: {{ .Values.nodeSets.claims_name }}
+          claims.principal: {{ .Values.nodeSets.claims_principal }}
+          op.authorization_endpoint: {{ .Values.nodeSets.op_authorization_endpoint }}
+          op.issuer: {{ .Values.nodeSets.op_issuer }}
+          op.jwkset_path: {{ .Values.nodeSets.op_jwkset_path }}
+          op.token_endpoint: {{ .Values.nodeSets.op_token_endpoint }}
+          op.userinfo_endpoint: {{ .Values.nodeSets.op_userinfo_endpoint }}
+          order: {{ .Values.nodeSets.order }}
+          rp.client_id: {{ .Values.nodeSets.rp_client_id }}
+          rp.post_logout_redirect_uri: {{ .Values.nodeSets.rp_post_logout_redirect_uri }}
+          rp.redirect_uri: {{ .Values.nodeSets.rp_redirect_uri }}
+          rp.response_type: {{ .Values.nodeSets.rp_response_type }}
+          ssl.certificate_authorities:
+          - /usr/share/elasticsearch/keycloak/{{ .Values.nodeSets.ca_pem }}
+      xpack.security.authc.token.enabled: true
+{{- end }}
+    count: {{ .Values.data.count }}
+    name: ingest-data
+    podTemplate:
+      metadata:
+        creationTimestamp: null
+      spec:
+{{- if .Values.imagePullSecrets }}
+        imagePullSecrets:
+        - name: {{ .Values.imagePullSecrets }}
+{{- end }}
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: {{ .Release.Name }}
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              cpu: {{ .Values.data.resources.limits.cpu }}
+              memory: {{ .Values.data.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.data.resources.requests.cpu }}
+              memory: {{ .Values.data.resources.requests.memory }}
+          securityContext:
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+          volumeMounts:
+{{- if  .Values.licence.enabled }}
+          - mountPath: /usr/share/elasticsearch/keycloak
+            name: ca-cert
+{{- end }}
+{{- if .Values.log4j.enabled }}
+          - mountPath: /usr/share/elasticsearch/config/log4j2.properties
+            subPath: log4j2.properties
+            name: log4j
+{{- end }}
+{{- if .Values.pvc.enabled }}
+          - mountPath: /usr/share/elasticsearch/logs
+            name: logs-backup
+{{- end }}
+        initContainers:
+        - name: elastic-internal-init-filesystem
+          securityContext:
+            privileged: true
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+        - name: sysctl
+          command: ['sh', '-c', 'chown -R 1000:1000 /usr/share/elasticsearch/data && chown -R 1000:1000 /usr/share/elasticsearch/logs && mkdir -p /usr/share/elasticsearch/logs/hourly && mkdir -p /usr/share/elasticsearch/logs/daily && mkdir -p /usr/share/elasticsearch/logs/weekly && mkdir -p /usr/share/elasticsearch/logs/monthly && sysctl -w vm.max_map_count=262144']
+          resources:
+{{ toYaml .Values.init.resources | indent 12 }}
+          securityContext:
+            privileged: true
+        volumes:
+{{- if  .Values.licence.enabled }}
+        - name: ca-cert
+          secret:
+            secretName: {{ .Values.Secrets.keycloak.name }}
+{{- end }}
+{{- if .Values.log4j.enabled }}
+        - name: log4j
+          configMap:
+            name: log4j
+{{- end }}
+{{- if .Values.pvc.enabled }}
+        - name: logs-backup
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.name }}
+{{- end }}
+    volumeClaimTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.data.volumeClaimTemplates.resources.requests.storage }}
+        storageClassName: {{ .Values.data.volumeClaimTemplates.storageClassName }}
+  transport:
+    service:
+      metadata:
+        creationTimestamp: null
+      spec: {}
+  updateStrategy:
+    changeBudget: {}
+  version: {{ .Values.version }}

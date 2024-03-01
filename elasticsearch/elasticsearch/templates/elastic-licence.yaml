@@ -1,0 +1,11 @@
+{{- if .Values.licence.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: eck-trial-license
+  namespace: {{ .Release.Namespace }}
+  labels:
+    license.k8s.elastic.co/type: enterprise_trial
+  annotations:
+    elastic.co/eula: accepted
+{{- end }}

@@ -1,0 +1,12 @@
+{{- if  .Values.external_certs.enabled }}
+apiVersion: v1
+data:
+  ca_crt: {{ .Values.external_certs.data.ca_crt }}
+  tls_crt: {{ .Values.external_certs.data.tls_crt }}
+  tls_key: {{ .Values.external_certs.data.tls_key }}
+kind: Secret
+metadata:
+  name: {{ .Values.external_certs.name }}
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+{{- end }}

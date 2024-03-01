@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipelines
+  labels:
+          app: logstash
+data:
+  logstash.conf: | 
+      input {
+        file {
+           path => "/home/Vineeth/logstash/star2002-full.csv/"
+           start_position =>"beginning"
+         }
+       }
+      filter  {
+        csv {
+          columns => [
+            "HumOut",
+            "TempIn",
+            "DewPoint",
+            "HumIn",
+            "WindDir",
+            "RainMonth",
+            "WindSpeed",
+            "RainDay",
+            "BatteryVolts",
+            "WindChill",
+            "Pressure",
+            "time",
+            "TempOut",
+            "WindSpeed10Min",
+            "RainRate",
+            "test"
+          ]      
+          separator => ", "
+          }
+      }              
+      output {
+         elasticsearch {
+              hosts =>  "http://20.85.165.234:9200"
+              action => "index"
+              index => "testdata"
+            }
+           stdout { codec => rubydebug }
+         }

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  serviceName: logstash-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsGroup: 1000
+        runAsUser: 1000
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - "logstash"
+            topologyKey: kubernetes.io/hostname
+      containers:
+        - name: logstash
+          resources:
+            requests:
+              cpu: 500m
+              memory: 4Gi
+            limits:
+              cpu: 500m
+              memory: 4Gi      
+          image: docker.elastic.co/logstash/logstash:7.17.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5044
+          env:
+          - name: LS_JAVA_OPTS
+            value: "-Xmx2g -Xms2g"
+          - name: ES_HOSTS
+            value: "http://20.85.165.234:9200"
+          volumeMounts:
+            - name: logstash-pipelines
+              mountPath: /usr/share/logstash/pipeline
+            - name: logstash-config
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+            - name: logstash-data
+              mountPath: /usr/share/logstash/data
+      volumes:
+        - name: logstash-pipelines
+          configMap:
+            name: logstash-pipelines
+        - name: logstash-config
+          configMap:
+            name: logstash-pwd-config
+  volumeClaimTemplates:
+  - metadata:
+      name: logstash-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: azurefile-premium

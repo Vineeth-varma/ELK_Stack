@@ -1,0 +1,63 @@
+{{- if .Values.automation.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cm
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.automation.replicas }}
+  selector:
+    matchLabels:
+      instance: {{ .Release.Name }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        instance: {{ .Release.Name }}
+    spec:
+{{- if .Values.automation.imagePullSecrets }}
+      imagePullSecrets:
+      - name: {{ .Values.automation.imagePullSecrets.name }}
+{{- end }}
+      containers:
+      - command:
+        - /opt/myaddition.sh
+        env:
+        - name: NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: HELMRELEASE
+          value: {{ .Release.Name }}
+        - name: kubeApiServerIp
+          value: {{ .Values.automation.env.kubeApiServerIp | quote }}
+        - name: kubeApiPort
+          value: {{ .Values.automation.env.kubeApiPort | quote }}
+        - name: INDICES
+          value: {{ .Values.automation.env.backupindex | quote }}
+{{- if .Values.automation.env.GIP }}
+        - name: GIP
+          value: {{ .Values.automation.env.GIP | quote }}
+{{- end }}
+{{- if .Values.automation.env.TITLE }}
+        - name: TITLE
+          value: {{ .Values.automation.env.TITLE | quote }}
+{{- end }}
+{{- if .Values.automation.env.KIBANA }}
+        - name: HELMRELEASE_KIBANA
+          value: {{ .Values.automation.env.KIBANA | quote }}
+{{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ .Release.Name }}-eops-input-configmap
+        image: {{ .Values.automation.image }}
+        imagePullPolicy: Always
+        name: {{ .Release.Name }}
+        resources:
+{{ toYaml .Values.automation.resources | indent 10 }}
+      restartPolicy: Always
+      securityContext:
+        runAsUser: {{ .Values.automation.securityContext.runAsUser }}
+      serviceAccount: {{ .Values.automation.serviceAccountName }}
+      serviceAccountName: {{ .Values.automation.serviceAccountName }}
+      terminationGracePeriodSeconds: 30
+{{- end }}

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pwd-config
+  labels:
+    app: logstash
+data:
+  logstash.yml: |-
+    config.reload.automatic: "true"
+    path.config: /usr/share/logstash/pipeline
+    path.data: /usr/share/logstash/data

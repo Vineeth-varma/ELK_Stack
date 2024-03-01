@@ -1,0 +1,77 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  image: {{ .Values.image }}
+  version: {{ .Values.version }}
+  config:
+    elasticsearch.hosts:
+    - {{ .Values.config.elasticsearch_hosts }}
+{{- if eq  .Values.oidc.enabled true }}
+    xpack.security.audit.enabled: true
+    xpack.security.authc.providers:
+      basic.basic1:
+        order: 1
+        description: "Log in with Elasticsearch"
+      oidc.{{ .Values.oidc.realm.name }}:
+        order: 0
+        realm: {{ .Values.oidc.realm.name }}
+        description: "Log in with OpenID Connect Keycloak"
+    server.xsrf.whitelist: [/api/security/v1/oidc]
+{{- end }}
+  count: {{ .Values.count }}
+  elasticsearchRef:
+    name: {{ .Values.elasticsearchRef.name }}
+    namespace: {{ .Release.Namespace }}
+  http:
+    service:
+      metadata:
+{{- if .Values.service.metadata.annotations }}
+        annotations:
+{{ toYaml .Values.service.metadata.annotations | indent 10 }}
+{{- end }}
+      spec:
+        ports:
+        - name: https
+          port: {{ .Values.service.spec.ports.port }}
+          protocol: TCP
+          targetPort: 5601
+        type: {{ .Values.service.spec.type }}
+{{- if .Values.service.spec.loadBalancerIP }}
+        loadBalancerIP: {{ .Values.service.spec.loadBalancerIP }}
+{{- end }}
+  podTemplate:
+    spec:
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecrets }}
+{{- end }}
+      containers:
+      - name: kibana
+{{- if .Values.pvc.enabled }}
+        args:
+        - /usr/local/bin/dumb-init -- /usr/local/bin/kibana-docker 2>&1 | tee -a /usr/share/kibana/logs/kibana.log;
+        command:
+        - /bin/sh
+        - -c
+{{- end }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.requests.memory }}
+            cpu: {{ .Values.resources.requests.cpu }}
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.resources.limits.cpu }}
+{{- if .Values.pvc.enabled }}
+        volumeMounts:
+        - mountPath: /usr/share/kibana/logs
+          name: es-repo-vol
+{{- end }}
+{{- if .Values.pvc.enabled }}
+      volumes:
+      - name: es-repo-vol
+        persistentVolumeClaim:
+          claimName: es-repo-claim
+{{- end }}

@@ -1,0 +1,203 @@
+# Master node Configuration
+master:
+  count: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 2Gi
+    limits:
+      cpu: 200m
+      memory: 2Gi
+  volumeClaimTemplates:
+    resources:
+      requests:
+        storage: 1Gi
+    # Create storage class externally and specify name here.
+    storageClassName: <sc-name>
+
+
+# Data Node Configuration
+data:
+  count: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 500m
+      memory: 2Gi
+  volumeClaimTemplates:
+    resources:
+      requests:
+        storage: 120Gi
+    # Create storage class externally and specify name here.
+    storageClassName: <sc-name>
+
+
+# Use this official one when you dont have private registry, docker.elastic.co/elasticsearch/elasticsearch:7.14.0
+image: docker.elastic.co/elasticsearch/elasticsearch:7.15.0
+imagePullSecrets: {}
+
+# Elasticsearch Version
+version: 7.15.0
+
+# This resource is just to run a simple command. So specify resources as less as possible.
+init:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Elasticsearch service, bydefault it is ClusterIP
+service:
+  metadata:
+    annotations: {}
+  spec:
+    port: <ElasticSearch Port>
+    # add only if necessary
+    type: LoadBalancer
+    loadBalancerIP: {}
+
+
+# Configmap to transfer logs to files inside elasticsearch
+log4j:
+  enabled: true
+  name: log4j
+
+# For signing with external Certificates like ericsson-signed-certs
+external_certs:
+  enabled: true
+  name: <external-signed-certs>
+  data:
+    ca_crt: LSO
+    tls_crt: LSO
+    tls_key: LSO
+
+# Specifying the certs in elasticsearch configuration
+tls:
+  enabled: true
+  secretName: <external-certs>
+
+# Enabled when you want to create a path inside elasticsearch container
+path_repo:
+  enabled: true
+
+# External pvc for backup and logs storage
+pvc:
+  enabled: true
+  name: elastic-backup
+  storageClassName: <sc-name>
+  storage: 10Gi
+
+# Security context
+securityContext:
+  runAsGroup: 1000
+  runAsUser: 1000
+
+# This configuration is to automate few things which will reduce manual activities, always enable.
+automation:
+  enabled: false
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  env:
+    kubeApiServerIp: <kubeApiServerIp>
+    kubeApiPort: <kubeApiPort>
+    backupindex: "*"
+    GIP: <GarafanaIp:Port>
+    TITLE: <This should be the same given in grafana.json>
+    KIBANA: <kibana-release-name>
+  image: eccs-docker-registry:5000/elk-enterprise:v1
+  imagePullSecrets: {}
+  securityContext:
+    runAsUser: 1000
+  serviceAccountName: automate-elastic-sa
+
+
+# Deploying Elasticsearch metrics dashboard into grafana
+grafanaDashboard:
+  enabled: true
+  name: elk-dashboard
+  labels:
+    instance: grafana  # the label should match with grafana dashboard label selector
+  config:                   # Grafana.json config
+    name: elk-dashboard
+
+
+# This is added as dependency chart whatever change you make here it will be reflected in sub-chart values.yaml
+prometheus-elasticsearch-exporter:
+  enabled: true
+  es:
+    uri:
+      port: <ElasticSearch Port>                   # elasticsearch url  port
+    # Default elastic user password, Dont change it until it is necessary.
+    # password: {}
+    sslSkipVerify: true
+  # Prometheus service Monitor configuration
+  serviceMonitor:
+    labels:
+      purpose: prometheus   # The label should match with prometheus label.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  image:
+    repository: quay.io/prometheuscommunity/elasticsearch-exporter
+    tag: v1.2.1
+    pullPolicy: IfNotPresent
+    pullSecret: ""
+
+# This configuration helps to create prometheus alerts.
+PrometheusRule:
+  enabled: True
+  labels:                           # Pass Prometheus labels
+    purpose: prometheus    
+
+
+# If You have Elastic Enterprise licence then you can use these features.
+licence:
+  enabled: false
+
+
+# Keycloak secret for oidc authentication & Keycloak certs details
+Secrets:
+  keycloak:
+    name: keycloak-cert
+    # place the encoded certificate
+    certificate: {}
+  oidc:
+    name: es-oidc-client-secret
+    data:
+      rp_client_secret: <keyclaok-secret-value>
+
+
+nodeSets:
+#Make it "true" when Multi-cluster setup is used
+  node_remote_cluster_client: false
+  oidc_realm_name: <real_name>
+  claims_groups: groups
+  claims_mail: email
+  claims_name: name
+  claims_principal: username
+  op_authorization_endpoint: <keycloak_authorization_url>
+  op_issuer: <keyclaok_end_point>
+  op_jwkset_path: <keycloak_jwk_url>
+  op_token_endpoint: <keyclaok_token_endpoint>
+  op_userinfo_endpoint: <keycloak_user-info_endpoint>
+  order: 2
+  rp_client_id: kibana
+  rp_post_logout_redirect_uri: <kibana_post_logout_url>
+  rp_redirect_uri: <kibana_url>
+  rp_response_type: code
+  ca_pem: keycloak-ca.pem

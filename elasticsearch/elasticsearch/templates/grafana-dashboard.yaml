@@ -1,0 +1,13 @@
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: {{ .Values.grafanaDashboard.name }}
+  labels:
+{{- toYaml .Values.grafanaDashboard.labels | nindent 4 }}
+spec:
+  json:
+    ""
+  configMapRef:
+    name: {{ .Values.grafanaDashboard.config.name }}
+    key: grafana.json
+{{- end }}

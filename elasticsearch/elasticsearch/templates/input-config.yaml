@@ -1,0 +1,11 @@
+{{- if .Values.automation.enabled }}
+apiVersion: v1
+data:
+  helmReleaseName: {{ .Release.Name }}
+  kubeApiPort: {{ .Values.automation.env.kubeApiPort | quote }}
+  kubeApiServerIp: {{ .Values.automation.env.kubeApiServerIp | quote }}
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-eops-input-configmap
+  namespace: {{ .Release.Namespace }}
+{{- end }}

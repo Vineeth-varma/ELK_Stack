@@ -1,0 +1,50 @@
+{{- if .Values.automation.enabled }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-role
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources:
+  - configmaps
+  - secrets
+  verbs: ["create","get","list","update","watch"]
+- apiGroups: [""]
+  resources:
+  - services
+  verbs: ["get","list"]
+- apiGroups:
+  - elasticsearch.k8s.elastic.co
+  resources:
+  - elasticsearches
+  verbs: ["get","list"]
+- apiGroups:
+  - kibana.k8s.elastic.co
+  resources:
+  - kibanas
+  verbs: ["get","list"]
+{{- end }}
+---
+{{- if .Values.automation.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.automation.serviceAccountName }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+{{- if .Values.automation.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.automation.serviceAccountName }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,39 @@
+pipeline {
+
+  environment {
+    registry = "registry.hub.docker.com/bvineeth/elastic_automate_deployment"
+    registryCredential = 'dockerhub_id'
+    dockerImage = ""
+  }
+
+  agent any
+
+  stages {
+
+    stage('Cloning Source') {
+      steps {
+        git 'https://github.com/Vineeth-varma/Elastic_Cloud_on_Kubernetes.git'
+      }
+    }
+
+    stage('Build image') {
+      steps{
+        script {
+          docker.withRegistry( 'https://registry.hub.docker.com', registryCredential ) {
+            dockerImage = docker.build("$registry:4.6-1","--file=./elastic-kibana-deployment-automation/Dockerfile .")
+          }
+        }
+      }
+    }
+      
+    stage('Push image') {
+      steps{
+        script {
+          docker.withRegistry( 'https://registry.hub.docker.com', registryCredential ) {
+            dockerImage.push()
+          }
+        }
+      }
+   }
+ }
+}

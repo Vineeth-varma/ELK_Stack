@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elastic-rally-job
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: elastic-rally
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: rally
+          image: elastic/rally:2.0.2
+          imagePullPolicy: Always
+          args:
+          - --track=percolator
+          - --track-params=number_of_replicas:1,number_of_shards:1,bulk_size:6000
+          - --pipeline=benchmark-only
+          - --target-hosts=experiment-es-http:9200
+          - --challenge=append-no-conflicts
+          - --client-options=timeout:60,use_ssl:true,verify_certs:false,basic_auth_user:'elastic',basic_auth_password:'experiment'
